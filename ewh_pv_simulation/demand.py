@@ -31,7 +31,7 @@ class DemandProfile:
             # Create a proper datetime index
             # Since the data doesn't have timestamps, create 5-minute intervals for a full year
             start_date = '2023-01-01'
-            periods = len(self.df)
+            periods = int(len(self.df))
             self.df.index = pd.date_range(start=start_date, periods=periods, freq='5min')
             
             # Sum seasonal volumes into one series

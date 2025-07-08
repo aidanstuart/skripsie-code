@@ -1,13 +1,9 @@
-"""
-pv_module.py
-
-PV power modeling using pvlib ModelChain.
-"""
 import pandas as pd
 import pvlib
 from pvlib.location import Location
 from pvlib.pvsystem import PVSystem
 from pvlib.modelchain import ModelChain
+from pvlib.temperature import TEMPERATURE_MODEL_PARAMETERS
 import warnings
 
 class PVModule:
@@ -26,6 +22,7 @@ class PVModule:
         - latitude: site latitude
         - longitude: site longitude
         - timezone: site timezone string
+        - racking_model: PV system racking model key for temperature parameters
     """
     def __init__(self, module_params: dict, system_params: dict):
         self.module = module_params
@@ -37,21 +34,26 @@ class PVModule:
         lat = system_params['latitude']
         lon = system_params['longitude']
         tz = system_params['timezone']
+        racking_model = system_params.get('racking_model', 'open_rack_cell_glassback')
 
-        # Build PVSystem and ModelChain
         try:
+            # Build the PVSystem with explicit racking_model & temperature params
             pv_sys = PVSystem(
-                module_parameters=module_params,
+                module_parameters=self.module,
                 inverter_parameters=inv_params,
                 surface_tilt=tilt,
-                surface_azimuth=azimuth
+                surface_azimuth=azimuth,
+                racking_model=racking_model,
+                temperature_model_parameters=
+                    TEMPERATURE_MODEL_PARAMETERS['sapm'][racking_model]
             )
-            
+
             location = Location(latitude=lat, longitude=lon, tz=tz)
-            
+
             # Suppress warnings about missing parameters
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
+                # Use SAPM for AOI, spectral, and temperature modeling
                 self.mc = ModelChain(
                     pv_sys,
                     location,
