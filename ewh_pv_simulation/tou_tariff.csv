@@ -1,0 +1,17 @@
+season,day_type,tou_period,start_hour,end_hour,rate_R_per_kWh
+low,weekday,off_peak,23,7,0.8
+low,weekday,standard,7,17,1.5
+low,weekday,peak,17,21,2.5
+low,weekday,standard,21,23,1.5
+low,weekend,off_peak,23,7,0.8
+low,weekend,standard,7,23,1.5
+low,public_holiday,off_peak,23,7,0.8
+low,public_holiday,standard,7,23,1.5
+high,weekday,off_peak,23,7,0.9
+high,weekday,standard,7,17,1.8
+high,weekday,peak,17,21,3.0
+high,weekday,standard,21,23,1.8
+high,weekend,off_peak,23,7,0.9
+high,weekend,standard,7,23,1.8
+high,public_holiday,off_peak,23,7,0.9
+high,public_holiday,standard,7,23,1.8

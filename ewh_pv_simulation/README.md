@@ -1,0 +1,1 @@
+Simulates a 150 L electric water heater (two-node model) powered by a rooftop PV array under the **solar-medium** control strategy and outputs energy, cost and savings KPIs.
