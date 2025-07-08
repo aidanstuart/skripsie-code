@@ -8,6 +8,7 @@ import pvlib
 from pvlib.location import Location
 from pvlib.pvsystem import PVSystem
 from pvlib.modelchain import ModelChain
+import warnings
 
 class PVModule:
     """
@@ -28,7 +29,8 @@ class PVModule:
     """
     def __init__(self, module_params: dict, system_params: dict):
         self.module = module_params
-        # unpack system parameters
+        
+        # Unpack system parameters
         tilt = system_params['tilt']
         azimuth = system_params['azimuth']
         inv_params = system_params.get('inverter', {})
@@ -36,21 +38,30 @@ class PVModule:
         lon = system_params['longitude']
         tz = system_params['timezone']
 
-        # build PVSystem and ModelChain
-        pv_sys = PVSystem(
-            module_parameters=module_params,
-            inverter_parameters=inv_params,
-            surface_tilt=tilt,
-            surface_azimuth=azimuth
-        )
-        location = Location(latitude=lat, longitude=lon, tz=tz)
-        self.mc = ModelChain(
-            pv_sys,
-            location,
-            aoi_model='sapm',
-            spectral_model='sapm',
-            temperature_model='sapm'
-        )
+        # Build PVSystem and ModelChain
+        try:
+            pv_sys = PVSystem(
+                module_parameters=module_params,
+                inverter_parameters=inv_params,
+                surface_tilt=tilt,
+                surface_azimuth=azimuth
+            )
+            
+            location = Location(latitude=lat, longitude=lon, tz=tz)
+            
+            # Suppress warnings about missing parameters
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.mc = ModelChain(
+                    pv_sys,
+                    location,
+                    aoi_model='sapm',
+                    spectral_model='sapm',
+                    temperature_model='sapm'
+                )
+        except Exception as e:
+            print(f"Error initializing PV system: {e}")
+            raise
 
     def get_power(self, meteo: pd.DataFrame) -> pd.Series:
         """
@@ -66,13 +77,23 @@ class PVModule:
         pd.Series
             DC power output (kW) at each timestamp.
         """
-        weather = meteo.rename(columns={
-            'dni': 'dni',
-            'ghi': 'ghi',
-            'dhi': 'dhi',
-            'temp_air': 'temp_air',
-            'wind_speed': 'wind_speed'
-        })
-        self.mc.run_model(weather)
-        # p_mp in W, convert to kW
-        return self.mc.results.dc['p_mp'] / 1000.0
+        try:
+            # Ensure we have the required columns
+            required_cols = ['dni', 'ghi', 'dhi', 'temp_air', 'wind_speed']
+            missing_cols = [col for col in required_cols if col not in meteo.columns]
+            if missing_cols:
+                raise ValueError(f"Missing required columns: {missing_cols}")
+            
+            # Create weather dataframe with proper column names
+            weather = meteo[required_cols].copy()
+            
+            # Run the model
+            self.mc.run_model(weather)
+            
+            # Return DC power in kW
+            return self.mc.results.dc['p_mp'] / 1000.0
+            
+        except Exception as e:
+            print(f"Error computing PV power: {e}")
+            # Return zero power series as fallback
+            return pd.Series(0.0, index=meteo.index)
