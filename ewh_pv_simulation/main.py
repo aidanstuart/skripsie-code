@@ -107,6 +107,113 @@ def get_hourly_rate(ts: pd.Timestamp, tariff: pd.DataFrame) -> float:
     except:
         return 1.5
 
+def create_summary_statistics(results_by_category: dict) -> pd.DataFrame:
+    """
+    Create a summary statistics DataFrame for all categories.
+    """
+    summary_data = []
+    
+    for category, results in results_by_category.items():
+        successful_results = [r for r in results if r['success']]
+        
+        if not successful_results:
+            print(f"⚠️ No successful results for {category} category")
+            continue
+            
+        # Extract KPIs from all households in this category
+        kpis_list = [r['kpis'] for r in successful_results]
+        costs_list = [r['cost_R'] for r in successful_results]
+        
+        if not kpis_list:
+            continue
+            
+        # Calculate summary statistics
+        summary_stats = {
+            'Category': category,
+            'Number_of_Households': len(successful_results),
+            
+            # Solar vs Grid heating percentages
+            'Avg_Solar_Heating_Time_Pct': np.mean([kpi.get('solar_heating_time_percentage', 0) for kpi in kpis_list]),
+            'Avg_Grid_Heating_Time_Pct': np.mean([kpi.get('grid_heating_time_percentage', 0) for kpi in kpis_list]),
+            'Min_Solar_Heating_Time_Pct': np.min([kpi.get('solar_heating_time_percentage', 0) for kpi in kpis_list]),
+            'Max_Solar_Heating_Time_Pct': np.max([kpi.get('solar_heating_time_percentage', 0) for kpi in kpis_list]),
+            
+            # Energy consumption
+            'Avg_Annual_Grid_kWh': np.mean([kpi.get('annual_grid_kwh', 0) for kpi in kpis_list]),
+            'Avg_Annual_Solar_kWh': np.mean([kpi.get('annual_solar_kwh', 0) for kpi in kpis_list]),
+            'Avg_Annual_Demand_kWh': np.mean([kpi.get('annual_demand_kwh', 0) for kpi in kpis_list]),
+            'Avg_Solar_Fraction': np.mean([kpi.get('solar_fraction', 0) for kpi in kpis_list]),
+            
+            # Cost savings
+            'Avg_Annual_Cost_R': np.mean(costs_list),
+            'Avg_Cost_Without_Solar_R': np.mean([kpi.get('cost_without_solar_R', 0) for kpi in kpis_list]),
+            'Avg_Solar_Savings_R': np.mean([kpi.get('annual_solar_savings_R', 0) for kpi in kpis_list]),
+            'Avg_Savings_Percentage': np.mean([kpi.get('savings_percentage', 0) for kpi in kpis_list]),
+            'Min_Savings_Percentage': np.min([kpi.get('savings_percentage', 0) for kpi in kpis_list]),
+            'Max_Savings_Percentage': np.max([kpi.get('savings_percentage', 0) for kpi in kpis_list]),
+            
+            # Total category savings
+            'Total_Annual_Savings_R': np.sum([kpi.get('annual_solar_savings_R', 0) for kpi in kpis_list]),
+            'Total_Grid_kWh': np.sum([kpi.get('annual_grid_kwh', 0) for kpi in kpis_list]),
+            'Total_Solar_kWh': np.sum([kpi.get('annual_solar_kwh', 0) for kpi in kpis_list]),
+            
+            # Performance metrics
+            'Avg_Cold_Draw_Pct': np.mean([kpi.get('cold_draw_pct', 0) for kpi in kpis_list]),
+            'Avg_Tank_Temp_C': np.mean([kpi.get('avg_temp', 0) for kpi in kpis_list])
+        }
+        
+        summary_data.append(summary_stats)
+    
+    return pd.DataFrame(summary_data)
+
+def print_summary_report(summary_df: pd.DataFrame):
+    """
+    Print a formatted summary report to console.
+    """
+    print("\n" + "="*80)
+    print("SOLAR WATER HEATING SIMULATION SUMMARY")
+    print("="*80)
+    
+    for _, row in summary_df.iterrows():
+        category = row['Category']
+        print(f"\n📊 {category.upper()} USAGE CATEGORY:")
+        print(f"   Number of households: {row['Number_of_Households']}")
+        
+        print(f"\n   🔥 HEATING ENERGY SOURCE:")
+        print(f"   • Solar heating:  {row['Avg_Solar_Heating_Time_Pct']:.1f}% (range: {row['Min_Solar_Heating_Time_Pct']:.1f}% - {row['Max_Solar_Heating_Time_Pct']:.1f}%)")
+        print(f"   • Grid heating:   {row['Avg_Grid_Heating_Time_Pct']:.1f}%")
+        
+        print(f"\n   💰 COST SAVINGS:")
+        print(f"   • Average annual cost: R{row['Avg_Annual_Cost_R']:.2f}")
+        print(f"   • Cost without solar:  R{row['Avg_Cost_Without_Solar_R']:.2f}")
+        print(f"   • Average savings:     R{row['Avg_Solar_Savings_R']:.2f} ({row['Avg_Savings_Percentage']:.1f}%)")
+        print(f"   • Savings range:       {row['Min_Savings_Percentage']:.1f}% - {row['Max_Savings_Percentage']:.1f}%")
+        print(f"   • Total category savings: R{row['Total_Annual_Savings_R']:.2f}")
+        
+        print(f"\n   ⚡ ENERGY CONSUMPTION:")
+        print(f"   • Average grid consumption:  {row['Avg_Annual_Grid_kWh']:.0f} kWh")
+        print(f"   • Average solar consumption: {row['Avg_Annual_Solar_kWh']:.0f} kWh")
+        print(f"   • Solar fraction:            {row['Avg_Solar_Fraction']:.1%}")
+        
+        print(f"\n   🌡️ PERFORMANCE:")
+        print(f"   • Cold draws: {row['Avg_Cold_Draw_Pct']:.1f}%")
+        print(f"   • Average tank temperature: {row['Avg_Tank_Temp_C']:.1f}°C")
+        
+        print("-" * 60)
+    
+    # Overall totals
+    total_households = summary_df['Number_of_Households'].sum()
+    total_savings = summary_df['Total_Annual_Savings_R'].sum()
+    total_solar_kwh = summary_df['Total_Solar_kWh'].sum()
+    total_grid_kwh = summary_df['Total_Grid_kWh'].sum()
+    
+    print(f"\n🎯 OVERALL RESULTS:")
+    print(f"   • Total households simulated: {total_households}")
+    print(f"   • Total annual savings: R{total_savings:.2f}")
+    print(f"   • Total solar energy used: {total_solar_kwh:.0f} kWh")
+    print(f"   • Total grid energy used: {total_grid_kwh:.0f} kWh")
+    print(f"   • Overall solar fraction: {total_solar_kwh/(total_solar_kwh + total_grid_kwh):.1%}")
+    print("="*80)
 
 def main():
     print("🔄 Starting categorized solar simulations...")
@@ -137,9 +244,21 @@ def main():
 
         results_by_category[category] = category_results
 
+    # Create summary statistics
+    print("\n📈 Creating summary statistics...")
+    summary_df = create_summary_statistics(results_by_category)
+    
+    # Print summary report
+    print_summary_report(summary_df)
+
+    # Save results to Excel
     all_dfs = []
     output_excel = 'simulation_summary_all_categories.xlsx'
     with pd.ExcelWriter(output_excel, engine='xlsxwriter') as writer:
+        # Write summary sheet first
+        summary_df.to_excel(writer, sheet_name='Summary', index=False)
+        
+        # Write individual category sheets
         for cat, res_list in results_by_category.items():
             successful = [r for r in res_list if r['success']]
             df_cat = pd.DataFrame([
@@ -154,7 +273,7 @@ def main():
             all_dfs.append(df_cat)
 
     print(f"\n✅ Results saved to: {output_excel}")
+    print(f"✅ Summary statistics saved to 'Summary' sheet")
 
 if __name__ == '__main__':
     main()
-

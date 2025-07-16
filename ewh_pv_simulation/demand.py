@@ -12,6 +12,7 @@ class DemandProfile:
     """
     def __init__(self, profile_path: str, tank_setpoint: float, temp_in: float):
         try:
+            print(f"    Loading demand profile: {profile_path}")
             # Read the CSV file
             self.df = pd.read_csv(profile_path)
             
@@ -26,22 +27,27 @@ class DemandProfile:
             # Verify columns exist
             missing_cols = [col for col in season_cols if col not in self.df.columns]
             if missing_cols:
+                print(f"    Available columns: {list(self.df.columns)}")
                 raise ValueError(f"Missing columns in {profile_path}: {missing_cols}")
             
             # Create a proper datetime index
-            # Since the data doesn't have timestamps, create 5-minute intervals for a full year
-            start_date = '2023-01-01'
-            periods = int(len(self.df))
+            # Match the irradiance data timeframe - 2024 data with 5-minute intervals
+            start_date = '2024-01-01'
+            periods = len(self.df)
             self.df.index = pd.date_range(start=start_date, periods=periods, freq='5min')
             
             # Sum seasonal volumes into one series
             self.df['volume_l'] = self.df[season_cols].sum(axis=1)
             
+            # Debug info
+            print(f"    Demand profile loaded: {periods} points, {self.df['volume_l'].sum():.1f}L total")
+            print(f"    Time range: {self.df.index.min()} to {self.df.index.max()}")
+            
             self.tank_setpoint = tank_setpoint
             self.temp_in = temp_in
             
         except Exception as e:
-            print(f"Error loading demand profile from {profile_path}: {e}")
+            print(f"    ERROR loading demand profile from {profile_path}: {e}")
             raise
 
     def get_draw_energy(self) -> pd.Series:
