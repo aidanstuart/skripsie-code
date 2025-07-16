@@ -29,6 +29,7 @@ SYSTEM_PARAMS = {
     'longitude': 18.860,               # Stellenbosch longitude
     'timezone': 'Africa/Johannesburg',
     'racking_model': 'open_rack_glass_glass',
+    'num_panels': 2,
 }
 
 MODULE_NAME = 'Canadian_Solar_Inc__CS5P_220M'  # default CEC module

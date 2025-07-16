@@ -27,12 +27,12 @@ class StratifiedTank:
     """
     def __init__(self, volume_l: float, c: float, rho: float,
                  R_th: float, element_rating_kw: float, dt_s: float, **kwargs):
-        self.volume = volume_l / 1000  # L -> m3
-        self.c = c
-        self.rho = rho
-        self.R_th = R_th
-        self.element_rating = element_rating_kw
-        self.dt = dt_s
+        self.volume = float(volume_l) / 1000  # L -> m3
+        self.c = float(c)
+        self.rho = float(rho)
+        self.R_th = float(R_th)
+        self.element_rating = float(element_rating_kw)
+        self.dt = float(dt_s)
         
         # Split volume equally between top and bottom nodes
         self.v_top = self.volume / 2
@@ -48,8 +48,8 @@ class StratifiedTank:
 
     def initialize(self, T0: float):
         """Initialize both nodes to T0 (°C)."""
-        self.top_temp = T0
-        self.bottom_temp = T0
+        self.top_temp = float(T0)
+        self.bottom_temp = float(T0)
 
     def step(self, power_kw: float, draw_kwh: float, T_amb: float):
         """
@@ -69,6 +69,11 @@ class StratifiedTank:
         tuple
             (top_temp, bottom_temp) in °C
         """
+        # Ensure all inputs are float
+        power_kw = float(power_kw)
+        draw_kwh = float(draw_kwh)
+        T_amb = float(T_amb)
+        
         # Convert power to energy over timestep
         Q_in = power_kw * 1000 * self.dt  # J
         
@@ -94,7 +99,10 @@ class StratifiedTank:
                 E_top -= E_draw
                 # Add cold water to replace what was drawn
                 # (simplified - assumes instantaneous mixing)
-                E_top += (E_draw * T_amb / self.top_temp) if self.top_temp > 0 else 0
+                if self.top_temp > 0:
+                    E_top += (E_draw * T_amb / self.top_temp)
+                else:
+                    E_top += E_draw * T_amb / 20  # Avoid division by zero
             else:
                 # Draw from both nodes
                 E_draw_remaining = E_draw - E_top
@@ -103,13 +111,28 @@ class StratifiedTank:
                 # Add cold water to bottom node too
                 if self.bottom_temp > 0:
                     E_bot += (E_draw_remaining * T_amb / self.bottom_temp)
+                else:
+                    E_bot += E_draw_remaining * T_amb / 20  # Avoid division by zero
         
         # Calculate new temperatures
-        self.top_temp = max(0, E_top / (self.mass_top * self.c))
-        self.bottom_temp = max(0, E_bot / (self.mass_bot * self.c))
+        if self.mass_top * self.c > 0:
+            self.top_temp = max(0, E_top / (self.mass_top * self.c))
+        else:
+            self.top_temp = T_amb
+            
+        if self.mass_bot * self.c > 0:
+            self.bottom_temp = max(0, E_bot / (self.mass_bot * self.c))
+        else:
+            self.bottom_temp = T_amb
         
         # Prevent temperatures from going too high (safety limit)
-        self.top_temp = min(self.top_temp, 90)
-        self.bottom_temp = min(self.bottom_temp, 90)
+        self.top_temp = min(float(self.top_temp), 90.0)
+        self.bottom_temp = min(float(self.bottom_temp), 90.0)
         
-        return self.top_temp, self.bottom_temp
+        # Ensure temperatures are not NaN
+        if np.isnan(self.top_temp):
+            self.top_temp = T_amb
+        if np.isnan(self.bottom_temp):
+            self.bottom_temp = T_amb
+        
+        return float(self.top_temp), float(self.bottom_temp)
